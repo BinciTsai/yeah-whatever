@@ -174,7 +174,7 @@ export default function HomePage() {
           <input
             type="number"
             min={1}
-            max={10}
+            max={420}
             value={radius / 1000}
             onChange={(e) => setRadius(Number(e.target.value) * 1000)}
             className="border px-2 py-1 rounded-lg w-24 text-center"
