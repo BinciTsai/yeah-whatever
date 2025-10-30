@@ -1,148 +1,205 @@
 "use client";
-import { useState, useEffect } from "react";
-import Script from "next/script";
-import dynamic from "next/dynamic";
 
-const LangSwitcher = dynamic(() => import("./components/LangSwitcher"), { ssr: false });
+import { useEffect, useState } from "react";
 
-export default function Home() {
-  const [lang, setLang] = useState<"en" | "zh-TW">("zh-TW");
-  const [drawCount, setDrawCount] = useState(3);
-  const [showAdPrompt, setShowAdPrompt] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+interface Place {
+  name: string;
+  rating: number;
+  user_ratings_total: number;
+  vicinity: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+  distance_km: number;
+}
 
-  // ✅ 每日重置邏輯
+export default function HomePage() {
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [adsKey, setAdsKey] = useState(0);
+  const [drawCount, setDrawCount] = useState(0);
+  const [cooldown, setCooldown] = useState(false);
+
+  // 每日抽籤限制設定
+  const DAILY_LIMIT = 3;
+
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const savedDate = localStorage.getItem("draw_date");
-    const savedCount = localStorage.getItem("draw_count");
+    // 初始化抽籤次數
+    const savedData = localStorage.getItem("drawData");
+    const today = new Date().toDateString();
 
-    if (savedDate === today && savedCount) {
-      setDrawCount(Number(savedCount));
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      if (parsed.date === today) {
+        setDrawCount(parsed.count);
+      } else {
+        // 新的一天重置
+        localStorage.setItem(
+          "drawData",
+          JSON.stringify({ date: today, count: 0 })
+        );
+        setDrawCount(0);
+      }
     } else {
-      localStorage.setItem("draw_date", today);
-      localStorage.setItem("draw_count", "3");
-      setDrawCount(3);
+      localStorage.setItem(
+        "drawData",
+        JSON.stringify({ date: today, count: 0 })
+      );
     }
   }, []);
 
-  // ✅ 抽籤功能
-  const handleDraw = () => {
-    if (drawCount > 0) {
-      const newCount = drawCount - 1;
-      setDrawCount(newCount);
-      localStorage.setItem("draw_count", String(newCount));
-      setResult(lang === "en" ? "🎯 You got a random restaurant!" : "🎯 抽中一家隨機餐廳！");
-    } else {
-      setShowAdPrompt(true);
-    }
+  const updateDrawCount = (count: number) => {
+    const today = new Date().toDateString();
+    localStorage.setItem("drawData", JSON.stringify({ date: today, count }));
+    setDrawCount(count);
   };
 
-  // ✅ 真實 Rewarded 廣告邏輯
-  const showRewardedAd = async () => {
-    const slotId = process.env.NEXT_PUBLIC_ADSENSE_REWARDED_SLOT!;
-    const clientId = process.env.NEXT_PUBLIC_ADSENSE_ID!;
+  // 模擬顯示廣告
+  const showAdThenContinue = async () => {
+    alert("🎬 Please watch this short ad to continue!");
+    await new Promise((r) => setTimeout(r, 3000)); // 模擬 3 秒廣告
+    setAdsKey((k) => k + 1);
+  };
 
+  const fetchNearbyRestaurants = async () => {
+    if (cooldown) return;
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 1500);
+
+    if (drawCount >= DAILY_LIMIT) {
+      await showAdThenContinue();
+      updateDrawCount(drawCount - DAILY_LIMIT + 1);
+    }
+
+    setLoading(true);
     try {
-      // @ts-ignore
-      const ad = new google.ads.rewarded.RewardedAd({
-        adUnitId: slotId,
-        publisherId: clientId,
-      });
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject)
+      );
 
-      ad.addEventListener("rewarded", () => {
-        // 👇 使用者完整看完廣告 → 解鎖一次抽籤
-        const newCount = drawCount + 1;
-        setDrawCount(newCount);
-        localStorage.setItem("draw_count", String(newCount));
-        setShowAdPrompt(false);
-        alert(lang === "en" ? "Thanks for watching! You earned 1 more draw!" : "感謝觀看廣告！你又能抽一次了！");
-      });
+      const { latitude, longitude } = position.coords;
 
-      await ad.load();
-      await ad.show();
+      const res = await fetch(
+        `/api/nearby?lat=${latitude}&lng=${longitude}&radius=6000`
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch nearby restaurants.");
+      const data = await res.json();
+
+      const restaurants = (data.results || []).map((p: any) => ({
+        ...p,
+        distance_km:
+          getDistanceFromLatLonInKm(
+            latitude,
+            longitude,
+            p.geometry.location.lat,
+            p.geometry.location.lng
+          ).toFixed(2),
+      }));
+
+      if (restaurants.length === 0) throw new Error("No restaurants found.");
+
+      const random = restaurants[Math.floor(Math.random() * restaurants.length)];
+      setSelectedPlace(random);
+      updateDrawCount(drawCount + 1);
+      setAdsKey((k) => k + 1);
     } catch (err) {
-      console.error("Rewarded ad failed:", err);
-      alert(lang === "en" ? "Ad failed to load. Try again later." : "廣告載入失敗，請稍後再試。");
+      console.error(err);
+      alert("Failed to fetch nearby restaurants.");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const getDistanceFromLatLonInKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-6">
-      {/* ✅ AdSense SDK & Rewarded API */}
-      <Script
-        id="adsbygoogle-init"
+    <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-4">
+      {/* Global AdSense script */}
+      <script
         async
-        strategy="afterInteractive"
-        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_ID}`}
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-xxxxxxxxxxxx"
         crossOrigin="anonymous"
-      />
-      <Script
-        id="adsense-rewarded"
-        strategy="afterInteractive"
-        src="https://pagead2.googlesyndication.com/pagead/js/rewarded_ads.js"
-      />
+      ></script>
 
-      <div className="max-w-xl w-full text-center">
-        <h1 className="text-3xl font-bold mb-4">
-          {lang === "en" ? "Yeah Whatever 🍽️" : "隨便啦 🍽️"}
-        </h1>
+      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+        Yeah Whatever 🍽️
+      </h1>
 
-        <LangSwitcher lang={lang} setLang={setLang} />
+      <p className="text-gray-700 mb-4">
+        Feeling hungry? Let fate decide your next meal.
+      </p>
 
-        <p className="mt-4">
-          {lang === "en"
-            ? `You have ${drawCount} draw${drawCount !== 1 ? "s" : ""} left today.`
-            : `今天還可以抽 ${drawCount} 次`}
-        </p>
+      <button
+        onClick={fetchNearbyRestaurants}
+        disabled={loading || cooldown}
+        className="bg-blue-500 text-white px-6 py-3 rounded-2xl hover:bg-blue-600 disabled:opacity-60"
+      >
+        {loading ? "Picking..." : "Draw a Restaurant"}
+      </button>
 
-        <button
-          onClick={handleDraw}
-          className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          {lang === "en" ? "Draw a Restaurant" : "抽一家餐廳"}
-        </button>
+      <p className="mt-3 text-sm text-gray-600">
+        🎯 Remaining draws today: {Math.max(0, DAILY_LIMIT - drawCount)}
+      </p>
 
-        {result && <p className="mt-6 text-lg text-green-600 font-semibold">{result}</p>}
+      {selectedPlace && (
+        <div className="mt-8 bg-white p-6 rounded-2xl shadow-md w-full max-w-md text-left">
+          <h2 className="text-xl font-semibold mb-2 text-gray-800">
+            {selectedPlace.name}
+          </h2>
+          <p className="text-gray-700">
+            ⭐ {selectedPlace.rating || "N/A"} ({selectedPlace.user_ratings_total || 0} reviews)
+          </p>
+          <p className="text-gray-600">📍 {selectedPlace.vicinity}</p>
+          <p className="text-gray-600">
+            📏 Distance: {selectedPlace.distance_km} km
+          </p>
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.geometry.location.lat},${selectedPlace.geometry.location.lng}`}
+            target="_blank"
+            className="block mt-4 bg-green-500 text-white text-center py-2 rounded-xl hover:bg-green-600"
+          >
+            Navigate with Google Maps
+          </a>
+        </div>
+      )}
 
-        {showAdPrompt && (
-          <div className="mt-8 p-4 bg-yellow-100 border border-yellow-400 rounded-lg">
-            <p>
-              {lang === "en"
-                ? "You've reached your daily limit. Watch an ad to unlock one more draw."
-                : "今天的免費抽籤次數已用完，觀看廣告可再抽一次。"}
-            </p>
-            <button
-              onClick={showRewardedAd}
-              className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              {lang === "en" ? "Watch Ad" : "觀看廣告"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ✅ 橫幅廣告 */}
-      <div className="fixed bottom-0 left-0 w-1/3 h-20 flex items-center justify-center bg-gray-50 border-t">
+      {/* Ad block */}
+      <div key={adsKey} className="mt-10 w-full flex justify-center">
         <ins
           className="adsbygoogle"
-          style={{ display: "block" }}
-          data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_ID}
-          data-ad-slot="1234567890"
-          data-ad-format="auto"
-          data-full-width-responsive="true"
+          style={{ display: "block", width: "100%", height: "120px" }}
+          data-ad-client="ca-pub-xxxxxxxxxxxx"
+          data-ad-slot={1000000 + adsKey}
         ></ins>
+        <script>{`(adsbygoogle = window.adsbygoogle || []).push({});`}</script>
       </div>
-      <div className="fixed bottom-0 right-0 w-1/3 h-20 flex items-center justify-center bg-gray-50 border-t">
-        <ins
-          className="adsbygoogle"
-          style={{ display: "block" }}
-          data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_ID}
-          data-ad-slot="0987654321"
-          data-ad-format="auto"
-          data-full-width-responsive="true"
-        ></ins>
-      </div>
+
+      <footer className="mt-10 text-sm text-gray-500">
+        © 2025 Yeah Whatever. All rights reserved.
+      </footer>
     </main>
   );
 }
