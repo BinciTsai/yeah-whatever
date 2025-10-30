@@ -23,9 +23,13 @@ export default function HomePage() {
   const [adsKey, setAdsKey] = useState(0);
   const [drawCount, setDrawCount] = useState(0);
   const [cooldown, setCooldown] = useState(false);
+  const [lang, setLang] = useState<"en" | "zh-TW">("en");
+  const [radius, setRadius] = useState(6000); // default 6 km
+  const [minRating, setMinRating] = useState(3.5);
 
-  // 每日抽籤限制設定
   const DAILY_LIMIT = 3;
+
+  const t = (en: string, zh: string) => (lang === "zh-TW" ? zh : en);
 
   useEffect(() => {
     // 初始化抽籤次數
@@ -58,9 +62,8 @@ export default function HomePage() {
     setDrawCount(count);
   };
 
-  // 模擬顯示廣告
   const showAdThenContinue = async () => {
-    alert("🎬 Please watch this short ad to continue!");
+    alert(t("🎬 Please watch a short ad to continue!", "🎬 請觀看短片廣告以繼續！"));
     await new Promise((r) => setTimeout(r, 3000)); // 模擬 3 秒廣告
     setAdsKey((k) => k + 1);
   };
@@ -84,24 +87,27 @@ export default function HomePage() {
       const { latitude, longitude } = position.coords;
 
       const res = await fetch(
-        `/api/nearby?lat=${latitude}&lng=${longitude}&radius=6000`
+        `/api/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`
       );
 
       if (!res.ok) throw new Error("Failed to fetch nearby restaurants.");
       const data = await res.json();
 
-      const restaurants = (data.results || []).map((p: any) => ({
-        ...p,
-        distance_km:
-          getDistanceFromLatLonInKm(
-            latitude,
-            longitude,
-            p.geometry.location.lat,
-            p.geometry.location.lng
-          ).toFixed(2),
-      }));
+      const restaurants = (data.results || [])
+        .map((p: any) => ({
+          ...p,
+          distance_km:
+            getDistanceFromLatLonInKm(
+              latitude,
+              longitude,
+              p.geometry.location.lat,
+              p.geometry.location.lng
+            ).toFixed(2),
+        }))
+        .filter((p: any) => (p.rating ?? 0) >= minRating);
 
-      if (restaurants.length === 0) throw new Error("No restaurants found.");
+      if (restaurants.length === 0)
+        throw new Error(t("No restaurants found.", "找不到符合條件的餐廳。"));
 
       const random = restaurants[Math.floor(Math.random() * restaurants.length)];
       setSelectedPlace(random);
@@ -109,7 +115,7 @@ export default function HomePage() {
       setAdsKey((k) => k + 1);
     } catch (err) {
       console.error(err);
-      alert("Failed to fetch nearby restaurants.");
+      alert(t("Failed to fetch nearby restaurants.", "無法取得餐廳資料。"));
     } finally {
       setLoading(false);
     }
@@ -137,31 +143,73 @@ export default function HomePage() {
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-4">
-      {/* Global AdSense script */}
       <script
         async
         src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-xxxxxxxxxxxx"
         crossOrigin="anonymous"
       ></script>
 
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
-        Yeah Whatever 🍽️
-      </h1>
+      <div className="flex items-center justify-between w-full max-w-md mt-6 mb-4">
+        <h1 className="text-3xl font-bold text-gray-800">Yeah Whatever 🍽️</h1>
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value as "en" | "zh-TW")}
+          className="border rounded-lg px-2 py-1 text-sm bg-white"
+        >
+          <option value="en">English</option>
+          <option value="zh-TW">中文</option>
+        </select>
+      </div>
 
       <p className="text-gray-700 mb-4">
-        Feeling hungry? Let fate decide your next meal.
+        {t("Let fate decide your next meal.", "讓命運決定你的下一餐吧！")}
       </p>
+
+      {/* 控制項 */}
+      <div className="flex gap-4 mb-4 items-center">
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">
+            {t("Radius (km)", "距離（公里）")}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={radius / 1000}
+            onChange={(e) => setRadius(Number(e.target.value) * 1000)}
+            className="border px-2 py-1 rounded-lg w-24 text-center"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">
+            {t("Min Rating", "最低星等")}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            step={0.1}
+            value={minRating}
+            onChange={(e) => setMinRating(Number(e.target.value))}
+            className="border px-2 py-1 rounded-lg w-24 text-center"
+          />
+        </div>
+      </div>
 
       <button
         onClick={fetchNearbyRestaurants}
         disabled={loading || cooldown}
         className="bg-blue-500 text-white px-6 py-3 rounded-2xl hover:bg-blue-600 disabled:opacity-60"
       >
-        {loading ? "Picking..." : "Draw a Restaurant"}
+        {loading
+          ? t("Picking...", "抽取中...")
+          : t("Draw a Restaurant", "抽一間餐廳")}
       </button>
 
       <p className="mt-3 text-sm text-gray-600">
-        🎯 Remaining draws today: {Math.max(0, DAILY_LIMIT - drawCount)}
+        🎯 {t("Remaining draws today:", "今日剩餘抽籤次數：")}{" "}
+        {Math.max(0, DAILY_LIMIT - drawCount)}
       </p>
 
       {selectedPlace && (
@@ -170,18 +218,20 @@ export default function HomePage() {
             {selectedPlace.name}
           </h2>
           <p className="text-gray-700">
-            ⭐ {selectedPlace.rating || "N/A"} ({selectedPlace.user_ratings_total || 0} reviews)
+            ⭐ {selectedPlace.rating || "N/A"} (
+            {selectedPlace.user_ratings_total || 0}{" "}
+            {t("reviews", "則評論")})
           </p>
           <p className="text-gray-600">📍 {selectedPlace.vicinity}</p>
           <p className="text-gray-600">
-            📏 Distance: {selectedPlace.distance_km} km
+            📏 {t("Distance", "距離")}：{selectedPlace.distance_km} km
           </p>
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.geometry.location.lat},${selectedPlace.geometry.location.lng}`}
             target="_blank"
             className="block mt-4 bg-green-500 text-white text-center py-2 rounded-xl hover:bg-green-600"
           >
-            Navigate with Google Maps
+            {t("Navigate with Google Maps", "使用 Google Maps 導航")}
           </a>
         </div>
       )}
@@ -198,7 +248,7 @@ export default function HomePage() {
       </div>
 
       <footer className="mt-10 text-sm text-gray-500">
-        © 2025 Yeah Whatever. All rights reserved.
+        © 2025 Yeah Whatever. {t("All rights reserved.", "版權所有。")}
       </footer>
     </main>
   );
