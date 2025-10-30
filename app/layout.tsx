@@ -7,12 +7,10 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-
     <html lang="en">
-    <head>
-     <meta name="google-site-verification" content="<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7290581557337468"
-     crossorigin="anonymous"></script>" />
-    </head>
+     <head>
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7290581557337468"crossorigin="anonymous"></script>
+     </head>
       <body className="min-h-screen flex flex-col">
         <main className="flex-1">
           {children}
