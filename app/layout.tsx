@@ -79,6 +79,13 @@ export default function RootLayout({
             data-ad-slot="你的廣告代號2"
           ></ins>
         </div>
+        <footer className="w-full bg-gray-100 text-center text-sm text-gray-600 py-4 border-t mt-10">
+           © 2025 Yeah Whatever |
+           <a href="/about" className="mx-1 hover:underline">About</a> |
+           <a href="/privacy" className="mx-1 hover:underline">Privacy Policy</a> |
+           <a href="/terms" className="mx-1 hover:underline">Terms of Service</a>
+        </footer>
+
       </body>
     </html>
   );
