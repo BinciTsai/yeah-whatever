@@ -161,9 +161,27 @@ export default function HomePage() {
         </select>
       </div>
 
-      <p className="text-gray-700 mb-4">
-        {t("Let fate decide your next meal.", "讓命運決定你的下一餐吧！")}
-      </p>
+      <div className="text-gray-700 mb-4 leading-relaxed">
+        {lang === "en" ? (
+          <>
+             <p className="font-medium mb-1">Let fate decide your next meal.</p>
+             <p>
+                Discover nearby restaurants, cafés, and local favorites within your area.  
+                You can adjust distance and rating filters, or simply let the app pick one for you —  
+                a fun and effortless way to find your next dining spot!
+             </p>
+          </>
+        ) : (
+          <>
+             <p className="font-medium mb-1">讓命運決定你的下一餐吧！</p>
+             <p>
+                探索你附近的餐廳、咖啡館與在地美食。  
+                你可以調整距離與評價條件，或直接讓系統幫你隨機抽選，  
+                享受輕鬆又有趣的美食發現體驗！
+             </p>
+          </>
+        )}
+      </div>
 
       {/* 控制項 */}
       <div className="flex gap-4 mb-4 items-center">
