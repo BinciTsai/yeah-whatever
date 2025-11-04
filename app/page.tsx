@@ -1,5 +1,6 @@
 "use client";
 
+import Head from "next/head";
 import { useEffect, useState } from "react";
 
 interface Place {
@@ -28,31 +29,19 @@ export default function HomePage() {
   const [minRating, setMinRating] = useState(3.5);
 
   const DAILY_LIMIT = 3;
-
   const t = (en: string, zh: string) => (lang === "zh-TW" ? zh : en);
 
+  // 初始化抽籤次數
   useEffect(() => {
-    // 初始化抽籤次數
     const savedData = localStorage.getItem("drawData");
     const today = new Date().toDateString();
-
     if (savedData) {
       const parsed = JSON.parse(savedData);
-      if (parsed.date === today) {
-        setDrawCount(parsed.count);
-      } else {
-        // 新的一天重置
-        localStorage.setItem(
-          "drawData",
-          JSON.stringify({ date: today, count: 0 })
-        );
-        setDrawCount(0);
-      }
+      if (parsed.date === today) setDrawCount(parsed.count);
+      else
+        localStorage.setItem("drawData", JSON.stringify({ date: today, count: 0 }));
     } else {
-      localStorage.setItem(
-        "drawData",
-        JSON.stringify({ date: today, count: 0 })
-      );
+      localStorage.setItem("drawData", JSON.stringify({ date: today, count: 0 }));
     }
   }, []);
 
@@ -64,7 +53,7 @@ export default function HomePage() {
 
   const showAdThenContinue = async () => {
     alert(t("🎬 Please watch a short ad to continue!", "🎬 請觀看短片廣告以繼續！"));
-    await new Promise((r) => setTimeout(r, 3000)); // 模擬 3 秒廣告
+    await new Promise((r) => setTimeout(r, 3000));
     setAdsKey((k) => k + 1);
   };
 
@@ -83,26 +72,21 @@ export default function HomePage() {
       const position = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject)
       );
-
       const { latitude, longitude } = position.coords;
 
-      const res = await fetch(
-        `/api/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`
-      );
-
+      const res = await fetch(`/api/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`);
       if (!res.ok) throw new Error("Failed to fetch nearby restaurants.");
-      const data = await res.json();
 
+      const data = await res.json();
       const restaurants = (data.results || [])
         .map((p: any) => ({
           ...p,
-          distance_km:
-            getDistanceFromLatLonInKm(
-              latitude,
-              longitude,
-              p.geometry.location.lat,
-              p.geometry.location.lng
-            ).toFixed(2),
+          distance_km: getDistanceFromLatLonInKm(
+            latitude,
+            longitude,
+            p.geometry.location.lat,
+            p.geometry.location.lng
+          ).toFixed(2),
         }))
         .filter((p: any) => (p.rating ?? 0) >= minRating);
 
@@ -131,11 +115,10 @@ export default function HomePage() {
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
     const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLat / 2) ** 2 +
       Math.cos(deg2rad(lat1)) *
         Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
@@ -143,12 +126,29 @@ export default function HomePage() {
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-4">
+      {/* ✅ SEO Head */}
+      <Head>
+        <title>Yeah Whatever 🍽️ | Find Nearby Restaurants</title>
+        <meta
+          name="description"
+          content="Yeah Whatever helps you discover restaurants, cafés, and local food spots nearby. Let fate decide your next meal and explore local dining effortlessly!"
+        />
+        <meta name="keywords" content="restaurants near me, food finder, cafe finder, local dining, Taiwan restaurants, 美食推薦, 餐廳搜尋" />
+        <meta name="robots" content="index, follow" />
+        <meta property="og:title" content="Yeah Whatever 🍽️ | Find Restaurants Near You" />
+        <meta property="og:description" content="Discover restaurants nearby, filter by rating, and let the app pick one for you — a fun way to find your next meal!" />
+        <meta property="og:image" content="/og-image.png" />
+        <meta property="og:type" content="website" />
+      </Head>
+
+      {/* Google AdSense */}
       <script
         async
         src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-xxxxxxxxxxxx"
         crossOrigin="anonymous"
       ></script>
 
+      {/* Header */}
       <div className="flex items-center justify-between w-full max-w-md mt-6 mb-4">
         <h1 className="text-3xl font-bold text-gray-800">Yeah Whatever 🍽️</h1>
         <select
@@ -161,30 +161,31 @@ export default function HomePage() {
         </select>
       </div>
 
-      <div className="text-gray-700 mb-4 leading-relaxed">
+      {/* Intro Text */}
+      <div className="text-gray-700 mb-4 leading-relaxed max-w-md">
         {lang === "en" ? (
           <>
-             <p className="font-medium mb-1">Let fate decide your next meal.</p>
-             <p>
-                Discover nearby restaurants, cafés, and local favorites within your area. <br/> 
-                You can adjust distance and rating filters, or simply let the app pick one for you.<br/>  
-                A fun and effortless way to find your next dining spot!
-             </p>
+            <p className="font-medium mb-1">Let fate decide your next meal.</p>
+            <p>
+              Discover nearby restaurants, cafés, and local favorites within your area. <br />
+              Adjust distance and rating filters, or simply let the app pick one for you.<br />
+              A fun and effortless way to find your next dining spot!
+            </p>
           </>
         ) : (
           <>
-             <p className="font-medium mb-1">讓命運決定你的下一餐吧！</p>
-             <p>
-                探索你附近的餐廳、咖啡館與在地美食。<br/> 
-                你可以調整距離與評價條件，或直接讓系統幫你隨機抽選。<br/>  
-                享受輕鬆又有趣的美食發現體驗！
-             </p>
+            <p className="font-medium mb-1">讓命運決定你的下一餐吧！</p>
+            <p>
+              探索你附近的餐廳、咖啡館與在地美食。<br />
+              你可以調整距離與評價條件，或直接讓系統幫你隨機抽選。<br />
+              享受輕鬆又有趣的美食發現體驗！
+            </p>
           </>
         )}
       </div>
 
-      {/* 控制項 */}
-      <div className="flex gap-4 mb-4 items-center">
+      {/* Controls */}
+      <section className="flex gap-4 mb-4 items-center">
         <div>
           <label className="block text-sm text-gray-700 mb-1">
             {t("Radius (km)", "距離（公里）")}
@@ -213,16 +214,15 @@ export default function HomePage() {
             className="border px-2 py-1 rounded-lg w-24 text-center"
           />
         </div>
-      </div>
+      </section>
 
+      {/* Draw Button */}
       <button
         onClick={fetchNearbyRestaurants}
         disabled={loading || cooldown}
         className="bg-blue-500 text-white px-6 py-3 rounded-2xl hover:bg-blue-600 disabled:opacity-60"
       >
-        {loading
-          ? t("Picking...", "抽取中...")
-          : t("Draw a Restaurant", "抽一間餐廳")}
+        {loading ? t("Picking...", "抽取中...") : t("Draw a Restaurant", "抽一間餐廳")}
       </button>
 
       <p className="mt-3 text-sm text-gray-600">
@@ -230,14 +230,14 @@ export default function HomePage() {
         {Math.max(0, DAILY_LIMIT - drawCount)}
       </p>
 
+      {/* Selected Restaurant */}
       {selectedPlace && (
-        <div className="mt-8 bg-white p-6 rounded-2xl shadow-md w-full max-w-md text-left">
+        <article className="mt-8 bg-white p-6 rounded-2xl shadow-md w-full max-w-md text-left">
           <h2 className="text-xl font-semibold mb-2 text-gray-800">
             {selectedPlace.name}
           </h2>
           <p className="text-gray-700">
-            ⭐ {selectedPlace.rating || "N/A"} (
-            {selectedPlace.user_ratings_total || 0}{" "}
+            ⭐ {selectedPlace.rating || "N/A"} ({selectedPlace.user_ratings_total || 0}{" "}
             {t("reviews", "則評論")})
           </p>
           <p className="text-gray-600">📍 {selectedPlace.vicinity}</p>
@@ -251,10 +251,10 @@ export default function HomePage() {
           >
             {t("Navigate with Google Maps", "使用 Google Maps 導航")}
           </a>
-        </div>
+        </article>
       )}
 
-      {/* Ad block */}
+      {/* Ad */}
       <div key={adsKey} className="mt-10 w-full flex justify-center">
         <ins
           className="adsbygoogle"
@@ -265,8 +265,38 @@ export default function HomePage() {
         <script>{`(adsbygoogle = window.adsbygoogle || []).push({});`}</script>
       </div>
 
-      <footer className="mt-10 text-sm text-gray-500">
-        © 2025 Yeah Whatever. {t("All rights reserved.", "版權所有。")}
+      {/* ✅ Extra SEO + Content Value Section */}
+      <section className="mt-12 max-w-2xl text-left text-gray-700 bg-white p-6 rounded-2xl shadow-sm">
+        <h2 className="text-lg font-semibold mb-2">
+          {t("Why use Yeah Whatever?", "為什麼選擇 Yeah Whatever？")}
+        </h2>
+        <p className="mb-3">
+          {t(
+            "Yeah Whatever is a fun, interactive food discovery app that helps you find nearby restaurants effortlessly. Instead of scrolling endlessly through reviews, just click once and let fate decide your next delicious adventure.",
+            "Yeah Whatever 是一款輕鬆又有趣的美食探索工具，幫助你快速找到附近的餐廳。不必煩惱選擇，只要按下一鍵，讓命運幫你挑選下一餐！"
+          )}
+        </p>
+        <h3 className="font-semibold mb-1">{t("Popular uses:", "常見用途：")}</h3>
+        <ul className="list-disc list-inside mb-3">
+          <li>{t("Finding dinner spots with friends", "和朋友聚餐時快速決定地點")}</li>
+          <li>{t("Exploring new cafés nearby", "探索新開的咖啡廳")}</li>
+          <li>{t("Traveling and looking for local food", "旅途中尋找在地美食")}</li>
+        </ul>
+        <p>
+          {t(
+            "Available in both English and Traditional Chinese, our app is designed for users in Taiwan and beyond. Start discovering hidden gems around you!",
+            "支援中英文介面，特別適合台灣與海外使用者，一起探索身邊的美味驚喜吧！"
+          )}
+        </p>
+      </section>
+
+      <footer className="mt-10 text-sm text-gray-500 text-center">
+        <p>© 2025 Yeah Whatever. {t("All rights reserved.", "版權所有。")}</p>
+        <p className="mt-1">
+          <a href="/about" className="hover:underline mx-1">About</a> |{" "}
+          <a href="/privacy" className="hover:underline mx-1">Privacy Policy</a> |{" "}
+          <a href="/terms" className="hover:underline mx-1">Terms of Service</a>
+        </p>
       </footer>
     </main>
   );
