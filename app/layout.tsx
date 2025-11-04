@@ -28,29 +28,6 @@ export default function RootLayout({
           async
           crossOrigin="anonymous"
         />
-        export const metadata = {
-          title: "Yeah Whatever 🍽️ | Random Restaurant Picker",
-          description:
-            "Let fate decide your next meal. Discover nearby restaurants, cafés, and hidden local favorites effortlessly.",
-          keywords: [
-            "restaurant picker",
-            "food finder",
-            "random restaurant",
-            "yeah whatever",
-            "find restaurants near me",
-          ],
-          authors: [{ name: "Jesse Tsai" }],
-          openGraph: {
-            title: "Yeah Whatever 🍽️ | Random Restaurant Picker",
-            description:
-            "Let fate decide your next meal — fun, easy, and spontaneous food discovery near you.",
-            url: "https://yeah-whatever.vercel.app",
-            siteName: "Yeah Whatever",
-            locale: "en_US",
-            type: "website",
-           },
-         };
-
       </head>
       <body className={inter.className}>
         {children}
