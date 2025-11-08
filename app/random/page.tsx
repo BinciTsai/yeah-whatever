@@ -1,131 +1,303 @@
-'use client';
-import React, { useEffect, useRef, useState } from 'react';
-import LangSwitcher from './components/LangSwitcher';
-import MapDisplay from './components/MapDisplay';
-import { useLoadScript } from '@react-google-maps/api';
+"use client";
 
-type ResultItem = {
+import Head from "next/head";
+import { useEffect, useState } from "react";
+
+interface Place {
   name: string;
-  rating?: number;
-  vicinity?: string;
-  lat: number;
-  lng: number;
-};
+  rating: number;
+  user_ratings_total: number;
+  vicinity: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+  distance_km: number;
+}
 
-export default function Page() {
-  const [lang, setLang] = useState<'en' | 'zh-TW'>('en');
-  const [zoom] = useState<number>(14);
-  const [radiusKm, setRadiusKm] = useState<number>(6); // default 6 km
-  const [minRating, setMinRating] = useState<number>(3.5);
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [selected, setSelected] = useState<{ lat: number; lng: number; title?: string } | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const mapRef = useRef<HTMLDivElement | null>(null);
+export default function HomePage() {
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [adsKey, setAdsKey] = useState(0);
+  const [drawCount, setDrawCount] = useState(0);
+  const [cooldown, setCooldown] = useState(false);
+  const [lang, setLang] = useState<"en" | "zh-TW">("en");
+  const [radius, setRadius] = useState(6000); // default 6 km
+  const [minRating, setMinRating] = useState(3.5);
 
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: ['places', 'geometry']
-  });
+  const DAILY_LIMIT = 3;
+  const t = (en: string, zh: string) => (lang === "zh-TW" ? zh : en);
 
+  // 初始化抽籤次數
   useEffect(() => {
-    // get current position, fallback to Taipei 101
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setCenter({ lat: 25.033964, lng: 121.564468 }), // Taipei 101 fallback
-        { timeout: 10000 }
-      );
+    const savedData = localStorage.getItem("drawData");
+    const today = new Date().toDateString();
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      if (parsed.date === today) setDrawCount(parsed.count);
+      else
+        localStorage.setItem("drawData", JSON.stringify({ date: today, count: 0 }));
     } else {
-      setCenter({ lat: 25.033964, lng: 121.564468 });
+      localStorage.setItem("drawData", JSON.stringify({ date: today, count: 0 }));
     }
   }, []);
 
-  const handlePick = () => {
-    if (!isLoaded || !center) { alert(lang==='en' ? 'Map not ready' : '地圖尚未準備好'); return; }
+  const updateDrawCount = (count: number) => {
+    const today = new Date().toDateString();
+    localStorage.setItem("drawData", JSON.stringify({ date: today, count }));
+    setDrawCount(count);
+  };
+
+  const showAdThenContinue = async () => {
+    alert(t("🎬 Please watch a short ad to continue!", "🎬 請觀看短片廣告以繼續！"));
+    await new Promise((r) => setTimeout(r, 3000));
+    setAdsKey((k) => k + 1);
+  };
+
+  const fetchNearbyRestaurants = async () => {
+    if (cooldown) return;
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 1500);
+
+    if (drawCount >= DAILY_LIMIT) {
+      await showAdThenContinue();
+      updateDrawCount(drawCount - DAILY_LIMIT + 1);
+    }
+
     setLoading(true);
-    setSelected(null);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject)
+      );
+      const { latitude, longitude } = position.coords;
 
-    // use PlacesService with a temporary div
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
-    const radiusMeters = Math.max(100, Math.min(60000, Math.round(radiusKm * 1000)));
-    const request: google.maps.places.PlaceSearchRequest = {
-      location: new google.maps.LatLng(center.lat, center.lng),
-      radius: radiusMeters,
-      type: 'restaurant',
-      language: lang,
-    };
+      const res = await fetch(`/api/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`);
+      if (!res.ok) throw new Error("Failed to fetch nearby restaurants.");
 
-    service.nearbySearch(request, (results, status) => {
+      const data = await res.json();
+      const restaurants = (data.results || [])
+        .map((p: any) => ({
+          ...p,
+          distance_km: getDistanceFromLatLonInKm(
+            latitude,
+            longitude,
+            p.geometry.location.lat,
+            p.geometry.location.lng
+          ).toFixed(2),
+        }))
+        .filter((p: any) => (p.rating ?? 0) >= minRating);
+
+      if (restaurants.length === 0)
+        throw new Error(t("No restaurants found.", "找不到符合條件的餐廳。"));
+
+      const random = restaurants[Math.floor(Math.random() * restaurants.length)];
+      setSelectedPlace(random);
+      updateDrawCount(drawCount + 1);
+      setAdsKey((k) => k + 1);
+    } catch (err) {
+      console.error(err);
+      alert(t("Failed to fetch nearby restaurants.", "無法取得餐廳資料。"));
+    } finally {
       setLoading(false);
-      if (status !== google.maps.places.PlacesServiceStatus.OK || !results) {
-        console.error('Places status', status, results);
-        alert(lang === 'en' ? 'Failed to fetch nearby restaurants.' : '無法取得附近餐廳資料。');
-        return;
-      }
-      const filtered = results.filter((r) => (r.rating ?? 0) >= minRating);
-      if (filtered.length === 0) {
-        alert(lang === 'en' ? 'No matching restaurants found.' : '找不到符合條件的餐廳。');
-        return;
-      }
-      const pick = filtered[Math.floor(Math.random() * filtered.length)];
-      const loc = pick.geometry?.location;
-      if (!loc) { alert('No location'); return; }
-      const lat = loc.lat();
-      const lng = loc.lng();
-      setSelected({ lat, lng, title: pick.name });
-      setCenter({ lat, lng });
-    });
+    }
   };
 
-  const handleNavigate = () => {
-    if (!selected) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}&travelmode=driving`;
-    window.open(url, '_blank');
+  const getDistanceFromLatLonInKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
+
+  const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
   return (
-    <main className="min-h-screen">
-      <div className="p-4 bg-gray-800 text-white flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">yeah, whatever.</h1>
-          <div className="text-sm text-gray-200">{lang === 'en' ? 'Random nearby restaurant picker' : '隨機附近餐廳抽籤'}</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-200">Language</div>
-          <LangSwitcher lang={lang} setLang={setLang} />
-        </div>
+    <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-4">
+      {/* ✅ SEO Head */}
+      <Head>
+        <title>Yeah Whatever 🍽️ | Find Nearby Restaurants</title>
+        <meta
+          name="description"
+          content="Yeah Whatever helps you discover restaurants, cafés, and local food spots nearby. Let fate decide your next meal and explore local dining effortlessly!"
+        />
+        <meta name="keywords" content="restaurants near me, food finder, cafe finder, local dining, Taiwan restaurants, 美食推薦, 餐廳搜尋" />
+        <meta name="robots" content="index, follow" />
+        <meta property="og:title" content="Yeah Whatever 🍽️ | Find Restaurants Near You" />
+        <meta property="og:description" content="Discover restaurants nearby, filter by rating, and let the app pick one for you — a fun way to find your next meal!" />
+        <meta property="og:image" content="/og-image.png" />
+        <meta property="og:type" content="website" />
+      </Head>
+
+      {/* Google AdSense */}
+      <script
+        async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-xxxxxxxxxxxx"
+        crossOrigin="anonymous"
+      ></script>
+
+      {/* Header */}
+      <div className="flex items-center justify-between w-full max-w-md mt-6 mb-4">
+        <h1 className="text-3xl font-bold text-gray-800">Yeah Whatever 🍽️</h1>
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value as "en" | "zh-TW")}
+          className="border rounded-lg px-2 py-1 text-sm bg-white"
+        >
+          <option value="en">English</option>
+          <option value="zh-TW">中文</option>
+        </select>
       </div>
 
-      <div className="p-4 bg-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-        <div className="md:col-span-2">
-          <label className="block text-sm">Search radius (km)</label>
-          <input type="number" value={radiusKm} min={0.1} max={60} step={0.1} onChange={(e)=>setRadiusKm(Number(e.target.value))} className="w-40 border p-1 rounded" />
-        </div>
-        <div>
-          <label className="block text-sm">Minimum rating</label>
-          <input type="number" value={minRating} min={0} max={5} step={0.1} onChange={(e)=>setMinRating(Number(e.target.value))} className="w-28 border p-1 rounded" />
-        </div>
-        <div>
-          <button onClick={handlePick} className="bg-blue-600 text-white px-4 py-2 rounded">{loading ? (lang==='en' ? 'Searching...' : '搜尋中...') : (lang==='en' ? 'Pick a restaurant' : '抽餐廳')}</button>
-        </div>
+      {/* Intro Text */}
+      <div className="text-gray-700 mb-4 leading-relaxed max-w-md">
+        {lang === "en" ? (
+          <>
+            <p className="font-medium mb-1">Let fate decide your next meal.</p>
+            <p>
+              Discover nearby restaurants, cafés, and local favorites within your area. <br />
+              Adjust distance and rating filters, or simply let the app pick one for you.<br />
+              A fun and effortless way to find your next dining spot!
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-medium mb-1">讓命運決定你的下一餐吧！</p>
+            <p>
+              探索你附近的餐廳、咖啡館與在地美食。<br />
+              你可以調整距離與評價條件，或直接讓系統幫你隨機抽選。<br />
+              享受輕鬆又有趣的美食發現體驗！
+            </p>
+          </>
+        )}
       </div>
 
-      <div className="p-4">
-        {isLoaded ? <MapDisplay center={center} zoom={zoom} selected={selected} /> : <div>Loading map...</div>}
-      </div>
-
-      {selected && (
-        <div className="p-4 max-w-3xl mx-auto bg-white shadow rounded space-y-2">
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="text-lg font-semibold">{selected.title}</div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={handleNavigate} className="bg-green-600 text-white px-3 py-1 rounded">{lang==='en' ? 'Navigate' : '導航'}</button>
-            </div>
-          </div>
+      {/* Controls */}
+      <section className="flex gap-4 mb-4 items-center">
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">
+            {t("Radius (km)", "距離（公里）")}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={420}
+            value={radius / 1000}
+            onChange={(e) => setRadius(Number(e.target.value) * 1000)}
+            className="border px-2 py-1 rounded-lg w-24 text-center"
+          />
         </div>
+
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">
+            {t("Min Rating", "最低星等")}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={5}
+            step={0.1}
+            value={minRating}
+            onChange={(e) => setMinRating(Number(e.target.value))}
+            className="border px-2 py-1 rounded-lg w-24 text-center"
+          />
+        </div>
+      </section>
+
+      {/* Draw Button */}
+      <button
+        onClick={fetchNearbyRestaurants}
+        disabled={loading || cooldown}
+        className="bg-blue-500 text-white px-6 py-3 rounded-2xl hover:bg-blue-600 disabled:opacity-60"
+      >
+        {loading ? t("Picking...", "抽取中...") : t("Draw a Restaurant", "抽一間餐廳")}
+      </button>
+
+      <p className="mt-3 text-sm text-gray-600">
+        🎯 {t("Remaining draws today:", "今日剩餘抽籤次數：")}{" "}
+        {Math.max(0, DAILY_LIMIT - drawCount)}
+      </p>
+
+      {/* Selected Restaurant */}
+      {selectedPlace && (
+        <article className="mt-8 bg-white p-6 rounded-2xl shadow-md w-full max-w-md text-left">
+          <h2 className="text-xl font-semibold mb-2 text-gray-800">
+            {selectedPlace.name}
+          </h2>
+          <p className="text-gray-700">
+            ⭐ {selectedPlace.rating || "N/A"} ({selectedPlace.user_ratings_total || 0}{" "}
+            {t("reviews", "則評論")})
+          </p>
+          <p className="text-gray-600">📍 {selectedPlace.vicinity}</p>
+          <p className="text-gray-600">
+            📏 {t("Distance", "距離")}：{selectedPlace.distance_km} km
+          </p>
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.geometry.location.lat},${selectedPlace.geometry.location.lng}`}
+            target="_blank"
+            className="block mt-4 bg-green-500 text-white text-center py-2 rounded-xl hover:bg-green-600"
+          >
+            {t("Navigate with Google Maps", "使用 Google Maps 導航")}
+          </a>
+        </article>
       )}
+
+      {/* Ad */}
+      <div key={adsKey} className="mt-10 w-full flex justify-center">
+        <ins
+          className="adsbygoogle"
+          style={{ display: "block", width: "100%", height: "120px" }}
+          data-ad-client="ca-pub-xxxxxxxxxxxx"
+          data-ad-slot={1000000 + adsKey}
+        ></ins>
+        <script>{`(adsbygoogle = window.adsbygoogle || []).push({});`}</script>
+      </div>
+
+      {/* ✅ Extra SEO + Content Value Section */}
+      <section className="mt-12 max-w-2xl text-left text-gray-700 bg-white p-6 rounded-2xl shadow-sm">
+        <h2 className="text-lg font-semibold mb-2">
+          {t("Why use Yeah Whatever?", "為什麼選擇 Yeah Whatever？")}
+        </h2>
+        <p className="mb-3">
+          {t(
+            "Yeah Whatever is a fun, interactive food discovery app that helps you find nearby restaurants effortlessly. Instead of scrolling endlessly through reviews, just click once and let fate decide your next delicious adventure.",
+            "Yeah Whatever 是一款輕鬆又有趣的美食探索工具，幫助你快速找到附近的餐廳。不必煩惱選擇，只要按下一鍵，讓命運幫你挑選下一餐！"
+          )}
+        </p>
+        <h3 className="font-semibold mb-1">{t("Popular uses:", "常見用途：")}</h3>
+        <ul className="list-disc list-inside mb-3">
+          <li>{t("Finding dinner spots with friends", "和朋友聚餐時快速決定地點")}</li>
+          <li>{t("Exploring new cafés nearby", "探索新開的咖啡廳")}</li>
+          <li>{t("Traveling and looking for local food", "旅途中尋找在地美食")}</li>
+        </ul>
+        <p>
+          {t(
+            "Available in both English and Traditional Chinese, our app is designed for users in Taiwan and beyond. Start discovering hidden gems around you!",
+            "支援中英文介面，特別適合台灣與海外使用者，一起探索身邊的美味驚喜吧！"
+          )}
+        </p>
+      </section>
+
+      <footer className="mt-10 text-sm text-gray-500 text-center">
+        <p>© 2025 Yeah Whatever. {t("All rights reserved.", "版權所有。")}</p>
+        <p className="mt-1">
+          <a href="/about" className="hover:underline mx-1">About</a> |{" "}
+          <a href="/privacy" className="hover:underline mx-1">Privacy Policy</a> |{" "}
+          <a href="/terms" className="hover:underline mx-1">Terms of Service</a>
+        </p>
+      </footer>
     </main>
   );
 }
