@@ -10,7 +10,7 @@ export default function HomePage() {
   const t = (en: string, zh: string) => (lang === "en" ? en : zh);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-100 px-6 text-center">
+    <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-6">
       <div className="flex items-center justify-between w-full max-w-md mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Yeah Whatever 🍽️</h1>
 
