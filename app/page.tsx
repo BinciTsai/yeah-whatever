@@ -1,65 +1,57 @@
-import Link from "next/link";
+"use client";
 
-export const metadata = {
-  title: "Yeah Whatever | Discover Random Restaurants Near You",
-  description:
-    "Yeah Whatever is a fun restaurant picker that helps you discover new places to eat nearby. Explore local cafes and restaurants effortlessly!",
-  openGraph: {
-    title: "Yeah Whatever | Let Fate Decide Your Next Meal",
-    description:
-      "Feeling indecisive? Let Yeah Whatever pick a random restaurant near you. Explore new dining experiences around you.",
-    url: "https://yeah-whatever.vercel.app",
-    siteName: "Yeah Whatever",
-    images: [
-      {
-        url: "https://yeah-whatever.vercel.app/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Yeah Whatever - Random Restaurant Picker",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-};
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [lang, setLang] = useState<"en" | "zh-TW">("en");
+
+  const t = (en: string, zh: string) => (lang === "en" ? en : zh);
+
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 to-yellow-100 text-center px-6">
-      <h1 className="text-4xl font-bold mb-4 text-gray-800">Yeah Whatever 🍽️</h1>
-      <p className="text-gray-700 max-w-xl leading-relaxed mb-6">
-        Welcome to <strong>Yeah Whatever</strong> — the fun way to discover where
-        to eat next!  
-        <br />
-        Whether you’re craving something new or can’t decide what to eat, we’ll
-        help you pick a random restaurant nearby.  
-        <br />
-        <br />
-        Adjust your preferences for distance and rating, or just let fate choose
-        your next dining adventure.  
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-100 px-6 text-center">
+      <div className="flex items-center justify-between w-full max-w-md mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">Yeah Whatever 🍽️</h1>
+
+        {/* 🌐 語言切換 */}
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value as "en" | "zh-TW")}
+          className="border rounded-lg px-2 py-1 text-sm bg-white shadow-sm"
+        >
+          <option value="en">English</option>
+          <option value="zh-TW">中文</option>
+        </select>
+      </div>
+
+      {/* 📝 主內容 */}
+      <h2 className="text-2xl font-semibold mb-4 text-gray-700">
+        {t("Find restaurants near you", "尋找你附近的餐廳")}
+      </h2>
+
+      <p className="text-gray-600 leading-relaxed max-w-md mb-6">
+        {t(
+          "Let fate decide your next meal. Discover nearby restaurants, cafés, and local favorites within your area. You can adjust distance and rating filters, or simply let the app pick one for you. A fun and effortless way to find your next dining spot!",
+          "讓命運決定你的下一餐吧！探索你附近的餐廳、咖啡館和在地美食。你可以調整距離與評價篩選條件，或是讓系統隨機幫你選擇，輕鬆又有趣地找到下一個用餐地點！"
+        )}
       </p>
 
-      <Link
-        href="/random"
-        className="bg-blue-500 text-white px-6 py-3 rounded-xl text-lg font-semibold hover:bg-blue-600 transition-all shadow-md"
+      {/* 🎯 開始按鈕 */}
+      <button
+        onClick={() => router.push("/random")}
+        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow-md transition-all duration-200"
       >
-        🍀 Start Now
-      </Link>
+        {t("Start Now", "開始抽籤")}
+      </button>
 
-      <footer className="mt-10 text-sm text-gray-600">
-        © 2025 Yeah Whatever |
-        <Link href="/about" className="mx-1 hover:underline">
-          About
-        </Link>
-        |
-        <Link href="/privacy" className="mx-1 hover:underline">
-          Privacy Policy
-        </Link>
-        |
-        <Link href="/terms" className="mx-1 hover:underline">
-          Terms of Service
-        </Link>
-      </footer>
+      {/* 📜 頁面底部說明 */}
+      <div className="mt-10 text-gray-500 text-sm max-w-md">
+        {t(
+          "Tip: You can adjust distance and star rating in the next page for more accurate results.",
+          "小提示：在下一頁你可以調整距離與星等，讓結果更精準。"
+        )}
+      </div>
     </main>
   );
 }
