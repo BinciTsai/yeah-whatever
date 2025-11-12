@@ -52,6 +52,12 @@ export default function HomePage() {
           "小提示：在下一頁你可以調整距離與星等，讓結果更精準。"
         )}
       </div>
+      <p className="text-gray-600 leading-relaxed max-w-md mb-6">
+        {t(
+          "If you want to pick a restaurant you click or tap the button upward. This paragraph is just for passing google adsense. It’s a hard time to build a real useful tool and make ends meet. If you read this sentence, you probably rich in time. There’s a story for you to know how this site came from. I was struggling to choose a restaurant to feed my belly and there were too many boring places to have food around me. Seriously, I had no idea what should I eat because there was no restaurant arousing my interest. My crush have to travel to many new places due to her job, and  she had a same problem( well, I think she had. ). Dame it google! You are blocking my path to happiness! There’s not many things a nerd can get ladies praise. Anyway……I stole this idea from a man collecting cafe informations and randomly pick one. I hope you enjoy this story and enjoy using this site to start your adventure.",
+          "如果你想選一家餐廳，請點擊上面的按鈕。這段文字只是為了通過google adsense的審核。現在開發一個真正有用的工具並維持收支平衡真的很難。如果你讀到了這句話，那你可能時間充裕。我跟你講個故事，告訴你這個網站的由來。當時我正苦惱於選一家餐廳填飽肚子，周圍都是些無聊的餐廳。說真的，我完全不知道該吃什麼，因為沒有一家餐廳能讓我提起興趣。我的暗戀對象因為工作需要常常出差，她也遇到同樣的問題（嗯，我覺得她有）。該死的google！你擋住了我通往幸福的道路！肥宅能博得女生好感的東西不多耶。總之……我從一個收集咖啡館資訊的人那裡借來了​​這個想法，然後隨機選了一家。希望你喜歡這個故事，也希望你能喜歡用這個網站開啟你的美食之旅。"
+        )}
+      </p>
     </main>
   );
 }
