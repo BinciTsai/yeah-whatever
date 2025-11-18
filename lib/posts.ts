@@ -7,19 +7,23 @@ const postsDirectory = path.join(process.cwd(), "posts");
 export function getAllPosts() {
   const fileNames = fs.readdirSync(postsDirectory);
 
-  return fileNames
-    .filter((f) => f.endsWith(".md"))
-    .map((fileName) => {
-      const slug = fileName.replace(/\.md$/, "");
-      const fullPath = path.join(postsDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      const { data } = matter(fileContents);
+  const posts = fileNames.map((fileName) => {
+    const slug = fileName.replace(/\.md$/, "");
+    const fullPath = path.join(postsDirectory, fileName);
+    const fileContents = fs.readFileSync(fullPath, "utf8");
 
-      return {
-        slug,
-        ...JSON.parse(JSON.stringify(data)), // 🟢 保證前端可序列化
-      };
-    });
+    const { data, content } = matter(fileContents);
+
+    return {
+      slug,
+      title: data.title || slug,
+      date: data.date || "",
+      content,
+    };
+  });
+
+  // sort by date desc
+  return posts.sort((a, b) => (a.date > b.date ? -1 : 1));
 }
 
 export function getPostBySlug(slug: string) {
@@ -30,7 +34,8 @@ export function getPostBySlug(slug: string) {
 
   return {
     slug,
-    ...JSON.parse(JSON.stringify(data)), // 🟢 防序列化錯誤
+    title: data.title || slug,
+    date: data.date || "",
     content,
   };
 }
