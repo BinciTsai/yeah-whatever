@@ -1,10 +1,9 @@
-# yeah-whatever
+---
+title: "Welcome to Yeah Whatever"
+date: "2025-01-01"
+---
 
-Local:
-1. cp .env.local.example .env.local
-2. Fill NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-3. npm install
-4. npm run dev
+This is your first content article for AdSense approval.
 
-Vercel:
-- push to GitHub, then set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Vercel Environment Variables, Deploy.
+You can write about what the project does, why it exists, and how users can benefit from it.
+
