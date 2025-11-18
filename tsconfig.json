@@ -15,7 +15,9 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["./*"],
+      "@/lib/*": ["./lib/*"],
+      "@/app/*": ["./app/*"]
      }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
