@@ -5,16 +5,18 @@ export default function PostsPage() {
   const posts = getAllPosts();
 
   return (
-    <main className="max-w-3xl mx-auto py-10">
-      <h1 className="text-4xl font-bold mb-8">文章列表</h1>
+    <main className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">文章列表</h1>
 
       <ul className="space-y-4">
         {posts.map((post) => (
-          <li key={post.slug} className="border-b pb-4">
-            <Link href={`/posts/${post.slug}`} className="text-2xl font-semibold hover:underline">
+          <li key={post.slug}>
+            <Link
+              href={`/posts/${post.slug}`}
+              className="text-blue-600 underline"
+            >
               {post.title}
             </Link>
-            <p className="text-gray-500 text-sm">{post.date}</p>
           </li>
         ))}
       </ul>
