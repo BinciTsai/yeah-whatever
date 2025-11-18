@@ -1,6 +1,6 @@
 ---
 title: "Welcome to Yeah Whatever"
-date: "2025-01-01"
+date: "2025-11-11"
 ---
 
 This is your first content article for AdSense approval.
