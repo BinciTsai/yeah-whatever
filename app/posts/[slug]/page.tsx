@@ -1,23 +1,16 @@
-import { getPostBySlug, getAllPosts } from "@/lib/posts";
+import { getPostBySlug } from "@/lib/posts";
 import { marked } from "marked";
 
-export async function generateStaticParams() {
-  const posts = getAllPosts();
-  return posts.map((post) => ({ slug: post.slug }));
-}
-
-export default function PostPage({ params }: { params: { slug: string } }) {
-  const post = getPostBySlug(params.slug);
+export default async function PostPage({ params }: { params: { slug: string } }) {
+  const post = await getPostBySlug(params.slug);
 
   return (
-    <main className="max-w-3xl mx-auto py-10">
-      <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
-      <p className="text-gray-500 mb-8">{post.date}</p>
-
+    <div className="prose mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-6">{post.title}</h1>
       <article
-        className="prose prose-lg"
-        dangerouslySetInnerHTML={{ __html: marked(post.content) }}
+        className="prose"
+        dangerouslySetInnerHTML={{ __html: marked(post.content || "") }}
       />
-    </main>
+    </div>
   );
 }
